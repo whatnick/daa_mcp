@@ -63,7 +63,7 @@ jobs:
             fi
           done
 
-          rm -rf dist/daa-mcp_*
+          find dist -maxdepth 1 -type d -name "daa-mcp_${VERSION}_*" -exec rm -rf {} +
           (cd dist && sha256sum *.tar.gz *.zip > checksums.txt)
 
       - name: Generate MCP metadata
@@ -134,4 +134,3 @@ jobs:
             dist/mcp-manifest.json
             dist/*.example.json
           generate_release_notes: true
-
