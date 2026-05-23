@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "daa_mcp": {
+      "command": "/absolute/path/to/daa-mcp",
+      "args": [],
+      "env": {
+        "DIGITAL_ATLAS_BASE_URL": "https://digital.atlas.gov.au/api/search/v1"
+      }
+    }
+  }
+}
+

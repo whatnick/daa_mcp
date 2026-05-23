@@ -21,6 +21,14 @@ type Client struct {
 	httpClient *http.Client
 }
 
+type SearchParams struct {
+	CollectionID string
+	Query        string
+	BBox         string
+	Limit        int
+	StartIndex   int
+}
+
 func New(baseURL string) *Client {
 	base := strings.TrimSpace(baseURL)
 	if base == "" {
@@ -50,15 +58,32 @@ func (c *Client) ListCollections(ctx context.Context) (*model.CollectionsRespons
 }
 
 func (c *Client) SearchItems(ctx context.Context, collectionID, q string, limit, startIndex int) (*model.ItemsResponse, error) {
+	return c.SearchItemsWithParams(ctx, SearchParams{
+		CollectionID: collectionID,
+		Query:        q,
+		Limit:        limit,
+		StartIndex:   startIndex,
+	})
+}
+
+func (c *Client) SearchItemsWithParams(ctx context.Context, paramsIn SearchParams) (*model.ItemsResponse, error) {
+	collectionID := strings.TrimSpace(paramsIn.CollectionID)
+	if collectionID == "" {
+		collectionID = "dataset"
+	}
+
 	params := url.Values{}
-	if q != "" {
-		params.Set("q", q)
+	if paramsIn.Query != "" {
+		params.Set("q", paramsIn.Query)
 	}
-	if limit > 0 {
-		params.Set("limit", strconv.Itoa(limit))
+	if paramsIn.BBox != "" {
+		params.Set("bbox", paramsIn.BBox)
 	}
-	if startIndex > 0 {
-		params.Set("startindex", strconv.Itoa(startIndex))
+	if paramsIn.Limit > 0 {
+		params.Set("limit", strconv.Itoa(paramsIn.Limit))
+	}
+	if paramsIn.StartIndex > 0 {
+		params.Set("startindex", strconv.Itoa(paramsIn.StartIndex))
 	}
 
 	path := fmt.Sprintf("/collections/%s/items", url.PathEscape(collectionID))

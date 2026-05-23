@@ -1,0 +1,137 @@
+name: Release binaries
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build release artifacts
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+
+          targets=(
+            "linux amd64"
+            "linux arm64"
+            "darwin amd64"
+            "darwin arm64"
+            "windows amd64"
+            "windows arm64"
+          )
+
+          for target in "${targets[@]}"; do
+            read -r goos goarch <<< "${target}"
+            out_dir="dist/daa-mcp_${VERSION}_${goos}_${goarch}"
+            mkdir -p "${out_dir}"
+
+            bin_name="daa-mcp"
+            if [ "${goos}" = "windows" ]; then
+              bin_name="daa-mcp.exe"
+            fi
+
+            GOOS="${goos}" GOARCH="${goarch}" CGO_ENABLED=0 go build \
+              -trimpath \
+              -ldflags "-s -w -X main.version=${VERSION}" \
+              -o "${out_dir}/${bin_name}" \
+              ./cmd/daa-mcp
+
+            if [ "${goos}" = "windows" ]; then
+              (cd dist && zip -rq "daa-mcp_${VERSION}_${goos}_${goarch}.zip" "daa-mcp_${VERSION}_${goos}_${goarch}")
+            else
+              (cd dist && tar -czf "daa-mcp_${VERSION}_${goos}_${goarch}.tar.gz" "daa-mcp_${VERSION}_${goos}_${goarch}")
+            fi
+          done
+
+          rm -rf dist/daa-mcp_*
+          (cd dist && sha256sum *.tar.gz *.zip > checksums.txt)
+
+      - name: Generate MCP metadata
+        env:
+          VERSION: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          python - << 'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          dist = Path("dist")
+          version = os.environ["VERSION"]
+          repo = os.environ["REPOSITORY"]
+          base = f"https://github.com/{repo}/releases/download/{version}"
+
+          assets = []
+          for p in sorted(dist.glob("daa-mcp_*")):
+              if p.suffix not in (".zip", ".gz"):
+                  continue
+              name = p.name
+              part = name.replace("daa-mcp_", "", 1).replace(".tar.gz", "").replace(".zip", "")
+              v, goos, goarch = part.split("_", 2)
+              assets.append({
+                  "name": name,
+                  "version": v,
+                  "os": goos,
+                  "arch": goarch,
+                  "url": f"{base}/{name}",
+              })
+
+          manifest = {
+              "schemaVersion": "1.0",
+              "name": "daa_mcp",
+              "version": version,
+              "repository": f"https://github.com/{repo}",
+              "transport": {"type": "stdio", "command": "daa-mcp", "args": []},
+              "env": [{
+                  "name": "DIGITAL_ATLAS_BASE_URL",
+                  "required": False,
+                  "default": "https://digital.atlas.gov.au/api/search/v1"
+              }],
+              "tools": [
+                  "atlas_list_collections",
+                  "atlas_search_items",
+                  "atlas_answer_query"
+              ],
+              "assets": assets
+          }
+
+          (dist / "mcp-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+          PY
+
+      - name: Copy client config examples
+        run: |
+          set -euo pipefail
+          cp mcp/clients/*.json dist/
+
+      - name: Publish release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/checksums.txt
+            dist/mcp-manifest.json
+            dist/*.example.json
+          generate_release_notes: true
+

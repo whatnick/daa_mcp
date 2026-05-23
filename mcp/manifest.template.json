@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "1.0",
+  "name": "daa_mcp",
+  "displayName": "Digital Atlas of Australia MCP",
+  "description": "Monolithic stdio MCP server for Digital Atlas hazard and spatial search queries.",
+  "repository": "https://github.com/whatnick/daa_mcp",
+  "transport": {
+    "type": "stdio",
+    "command": "daa-mcp",
+    "args": []
+  },
+  "env": [
+    {
+      "name": "DIGITAL_ATLAS_BASE_URL",
+      "required": false,
+      "default": "https://digital.atlas.gov.au/api/search/v1"
+    }
+  ],
+  "tools": [
+    "atlas_list_collections",
+    "atlas_search_items",
+    "atlas_answer_query"
+  ]
+}
+
