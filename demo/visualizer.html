@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DAA MCP Hazards Pulse</title>
+    <style>
+      :root {
+        --bg: #050b1a;
+        --fg: #e7eefc;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      }
+      #wrap {
+        position: relative;
+        width: 1280px;
+        height: 720px;
+        margin: 0 auto;
+        overflow: hidden;
+        background: radial-gradient(1200px 700px at 70% -20%, #1d3f86, #050b1a 60%);
+      }
+      #canvas {
+        position: absolute;
+        inset: 0;
+      }
+      #header {
+        position: absolute;
+        left: 24px;
+        top: 20px;
+        z-index: 2;
+      }
+      #title {
+        font-size: 34px;
+        font-weight: 700;
+        letter-spacing: 0.4px;
+      }
+      #subtitle {
+        margin-top: 4px;
+        color: #b8c9ec;
+        font-size: 16px;
+      }
+      #query {
+        position: absolute;
+        left: 24px;
+        right: 24px;
+        top: 98px;
+        z-index: 2;
+        font-size: 26px;
+        font-weight: 600;
+        color: #d8e5ff;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+      }
+      #legend {
+        position: absolute;
+        right: 24px;
+        top: 24px;
+        z-index: 2;
+        width: 310px;
+        background: rgba(5, 11, 26, 0.65);
+        border: 1px solid rgba(157, 181, 228, 0.35);
+        border-radius: 14px;
+        padding: 14px 14px 10px;
+        backdrop-filter: blur(4px);
+      }
+      #legend h3 {
+        margin: 0 0 10px;
+        font-size: 15px;
+        color: #c8d9ff;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 7px;
+        font-size: 13px;
+      }
+      .swatch {
+        width: 12px;
+        height: 12px;
+        margin-right: 8px;
+        border-radius: 2px;
+      }
+      #status {
+        position: absolute;
+        left: 24px;
+        bottom: 20px;
+        z-index: 2;
+        font-size: 14px;
+        color: #a9bce4;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="wrap">
+      <canvas id="canvas" width="1280" height="720"></canvas>
+      <div id="header">
+        <div id="title">Digital Atlas Hazards Pulse</div>
+        <div id="subtitle">Live MCP query responses visualized across Australia</div>
+      </div>
+      <div id="query"></div>
+      <div id="legend">
+        <h3>Legend</h3>
+        <div class="row"><span class="swatch" style="background:#ff643d"></span>Fire / bushfire</div>
+        <div class="row"><span class="swatch" style="background:#2bd0ff"></span>Water hazards / flood</div>
+        <div class="row"><span class="swatch" style="background:#c973ff"></span>Earthquake / seismic</div>
+        <div class="row"><span class="swatch" style="background:#f8d542"></span>Storm / severe weather</div>
+      </div>
+      <div id="status">Starting scenario…</div>
+    </div>
+
+    <script>
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      const queryEl = document.getElementById("query");
+      const statusEl = document.getElementById("status");
+      const W = canvas.width;
+      const H = canvas.height;
+
+      const AUS = { minLon: 109, minLat: -45, maxLon: 159, maxLat: -8 };
+      const mapRect = { x: 150, y: 150, w: 880, h: 500 };
+      let hazards = [];
+
+      function lonToX(lon) {
+        const n = (lon - AUS.minLon) / (AUS.maxLon - AUS.minLon);
+        return mapRect.x + n * mapRect.w;
+      }
+      function latToY(lat) {
+        const n = (AUS.maxLat - lat) / (AUS.maxLat - AUS.minLat);
+        return mapRect.y + n * mapRect.h;
+      }
+      function drawGrid() {
+        ctx.strokeStyle = "rgba(131,160,216,0.22)";
+        ctx.lineWidth = 1;
+        for (let lon = 110; lon <= 160; lon += 5) {
+          const x = lonToX(lon);
+          ctx.beginPath();
+          ctx.moveTo(x, mapRect.y);
+          ctx.lineTo(x, mapRect.y + mapRect.h);
+          ctx.stroke();
+        }
+        for (let lat = -45; lat <= -5; lat += 5) {
+          const y = latToY(lat);
+          ctx.beginPath();
+          ctx.moveTo(mapRect.x, y);
+          ctx.lineTo(mapRect.x + mapRect.w, y);
+          ctx.stroke();
+        }
+      }
+      function drawMapBase() {
+        ctx.fillStyle = "rgba(14,33,70,0.88)";
+        ctx.fillRect(mapRect.x, mapRect.y, mapRect.w, mapRect.h);
+        drawGrid();
+
+        const corners = [
+          [112, -44],
+          [154, -44],
+          [154, -9],
+          [112, -9]
+        ];
+        ctx.strokeStyle = "rgba(194,214,255,0.75)";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        corners.forEach((c, i) => {
+          const x = lonToX(c[0]);
+          const y = latToY(c[1]);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.closePath();
+        ctx.stroke();
+      }
+      function drawHazards(now) {
+        hazards.forEach((h) => {
+          const age = Math.max(0, (now - h.createdAt) / 1000);
+          const pulse = 0.65 + 0.35 * Math.sin(age * 4.3);
+          const alpha = 0.2 + 0.45 * pulse;
+
+          const x1 = lonToX(h.bbox.minLon);
+          const y1 = latToY(h.bbox.maxLat);
+          const x2 = lonToX(h.bbox.maxLon);
+          const y2 = latToY(h.bbox.minLat);
+
+          ctx.fillStyle = h.color + Math.round(alpha * 255).toString(16).padStart(2, "0");
+          ctx.strokeStyle = h.color;
+          ctx.lineWidth = 2;
+          ctx.fillRect(x1, y1, Math.max(2, x2 - x1), Math.max(2, y2 - y1));
+          ctx.strokeRect(x1, y1, Math.max(2, x2 - x1), Math.max(2, y2 - y1));
+        });
+      }
+      function frame(now) {
+        ctx.clearRect(0, 0, W, H);
+        drawMapBase();
+        drawHazards(now);
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+
+      window.DemoAPI = {
+        reset() {
+          hazards = [];
+          queryEl.textContent = "";
+          statusEl.textContent = "Ready";
+        },
+        setQuery(q) {
+          queryEl.textContent = q;
+        },
+        setStatus(s) {
+          statusEl.textContent = s;
+        },
+        addHazards(items, color) {
+          const now = performance.now();
+          for (const it of items) {
+            hazards.push({
+              color,
+              title: it.title || "",
+              bbox: it.bbox,
+              createdAt: now
+            });
+          }
+          if (hazards.length > 18) {
+            hazards = hazards.slice(hazards.length - 18);
+          }
+        }
+      };
+    </script>
+  </body>
+</html>
+

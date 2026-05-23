@@ -24,6 +24,20 @@ jobs:
       - name: Test
         run: go test ./...
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install demo dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Record release demo video
+        run: npm run demo:record
+
       - name: Build release artifacts
         env:
           VERSION: ${{ github.ref_name }}
@@ -124,6 +138,14 @@ jobs:
           set -euo pipefail
           cp mcp/clients/*.json dist/
 
+      - name: Copy demo video assets
+        run: |
+          set -euo pipefail
+          cp demo/output/hazards-demo.webm dist/
+          if [ -f demo/output/hazards-demo.mp4 ]; then
+            cp demo/output/hazards-demo.mp4 dist/
+          fi
+
       - name: Publish release assets
         uses: softprops/action-gh-release@v2
         with:
@@ -133,4 +155,5 @@ jobs:
             dist/checksums.txt
             dist/mcp-manifest.json
             dist/*.example.json
+            dist/hazards-demo.*
           generate_release_notes: true

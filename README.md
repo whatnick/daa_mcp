@@ -14,6 +14,8 @@
   - `atlas_search_items`
   - `atlas_answer_query` (natural-language query answering, e.g. bushfires around Australia)
 - Multi-agent setup docs in `docs/AGENTS.md` (Claude, VS Code Copilot, Kiro).
+- Demo video pipeline docs in `docs/DEMO_VIDEO.md`.
+- Local voice cloning guidance in `docs/VOICE_CLONING_LOCAL.md`.
 - Copilot guidance in `.github/copilot-instructions.md` aligned to Digital Atlas endpoints and query semantics.
 
 ## Upstream API
@@ -71,6 +73,19 @@ git push origin v0.2.0
   - `mcp/clients/claude_desktop_config.example.json`
   - `mcp/clients/vscode.mcp.example.json`
   - `mcp/clients/kiro.mcp.example.json`
+
+## Demo video (headless)
+
+```bash
+npm install
+npx playwright install chromium
+npm run demo:record
+```
+
+See:
+
+- `docs/DEMO_VIDEO.md`
+- Latest release demo asset: `https://github.com/whatnick/daa_mcp/releases/latest/download/hazards-demo.webm`
 
 ## License
 
