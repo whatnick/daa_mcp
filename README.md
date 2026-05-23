@@ -85,7 +85,7 @@ npm run demo:record
 See:
 
 - `docs/DEMO_VIDEO.md`
-- Latest release demo asset: `https://github.com/whatnick/daa_mcp/releases/latest/download/hazards-demo.webm`
+- Latest release demo asset: [hazards-demo.webm](https://github.com/whatnick/daa_mcp/releases/latest/download/hazards-demo.webm)
 
 ## License
 
